@@ -27,7 +27,7 @@ def _patch_state_dict_key(state_dict):
 def _load_state_dict(model_name):
     if model_name == "da3mono-large":
         url = "https://huggingface.co/depth-anything/DA3MONO-LARGE/resolve/main/model.safetensors?download=true"
-        file_name = f"depth_anything_v3_{model_name}.safetensors"
+        file_name = f"{model_name}.safetensors"
 
     if not file_name:
         raise ValueError(model_name)
