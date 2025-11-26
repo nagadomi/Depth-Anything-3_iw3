@@ -75,7 +75,7 @@ class DepthAnything3Net(nn.Module):
                 cam_dec if isinstance(cam_dec, nn.Module) else create_object(_wrap_cfg(cam_dec))
             )
             self.cam_enc = (
-                cam_dec if isinstance(cam_enc, nn.Module) else create_object(_wrap_cfg(cam_enc))
+                cam_enc if isinstance(cam_enc, nn.Module) else create_object(_wrap_cfg(cam_enc))
             )
         self.gs_adapter, self.gs_head = None, None
         if gs_head is not None and gs_adapter is not None:
@@ -181,16 +181,15 @@ class DepthAnything3Net(nn.Module):
             return output
         assert output.get("depth", None) is not None, "must provide MV depth for the GS head."
 
-        # if GT camera poses are provided, use them
-        if extrinsics is not None and intrinsics is not None:
-            ctx_extr = extrinsics
-            ctx_intr = intrinsics
-        else:
-            ctx_extr = output.get("extrinsics", None)
-            ctx_intr = output.get("intrinsics", None)
-            assert (
-                ctx_extr is not None and ctx_intr is not None
-            ), "must process camera info first if GT is not available"
+        # The depth is defined in the DA3 model's camera space,
+        # so even with provided GT camera poses,
+        # we instead use the predicted camera poses for better alignment.
+        ctx_extr = output.get("extrinsics", None)
+        ctx_intr = output.get("intrinsics", None)
+        assert (
+            ctx_extr is not None and ctx_intr is not None
+        ), "must process camera info first if GT is not available"
+
         gt_extr = extrinsics
         # homo the extr if needed
         ctx_extr = as_homogeneous(ctx_extr)
