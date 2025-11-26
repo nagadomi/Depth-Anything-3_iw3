@@ -176,6 +176,9 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
         if "gs" in export_format:
             assert infer_gs, "must set `infer_gs=True` to perform gs-related export."
 
+        if "colmap" in export_format:
+            assert isinstance(image[0], str), "`image` must be image paths for COLMAP export."
+
         # Preprocess images
         imgs_cpu, extrinsics, intrinsics = self._preprocess_inputs(
             image, extrinsics, intrinsics, process_res, process_res_method
@@ -239,6 +242,17 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
                         "fps": feat_vis_fps,
                     }
                 )
+            # Add COLMAP export parameters
+            if "colmap" in export_format:
+                if "colmap" not in export_kwargs:
+                    export_kwargs["colmap"] = {}
+                export_kwargs["colmap"].update(
+                    {
+                        "image_paths": image,
+                        "conf_thresh_percentile": conf_thresh_percentile,
+                        "process_res_method": process_res_method,
+                    }
+                )
             self._export_results(prediction, export_format, export_dir, **export_kwargs)
 
         return prediction
@@ -250,7 +264,7 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
         intrinsics: np.ndarray | None = None,
         process_res: int = 504,
         process_res_method: str = "upper_bound_resize",
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         """Preprocess input images using input processor."""
         start_time = time.time()
         imgs_cpu, extrinsics, intrinsics = self.input_processor(
@@ -272,8 +286,8 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
     def _prepare_model_inputs(
         self,
         imgs_cpu: torch.Tensor,
-        extrinsics: torch.tensor | None,
-        intrinsics: torch.tensor | None,
+        extrinsics: torch.Tensor | None,
+        intrinsics: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         """Prepare tensors for model input."""
         device = self._get_model_device()
@@ -295,7 +309,7 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
 
         return imgs, ex_t, in_t
 
-    def _normalize_extrinsics(self, ex_t: torch.Tensor) -> torch.Tensor:
+    def _normalize_extrinsics(self, ex_t: torch.Tensor | None) -> torch.Tensor | None:
         """Normalize extrinsics"""
         if ex_t is None:
             return None
@@ -311,8 +325,8 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
 
     def _align_to_input_extrinsics_intrinsics(
         self,
-        extrinsics: torch.Tensor,
-        intrinsics: torch.Tensor,
+        extrinsics: torch.Tensor | None,
+        intrinsics: torch.Tensor | None,
         prediction: Prediction,
         align_to_input_ext_scale: bool = True,
         ransac_view_thresh: int = 10,
