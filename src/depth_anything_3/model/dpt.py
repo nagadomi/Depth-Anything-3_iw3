@@ -162,7 +162,7 @@ class DPT(nn.Module):
         H: int,
         W: int,
         patch_start_idx: int,
-        chunk_size: int = 8,
+        chunk_size: int = 2,
         **kwargs,
     ) -> Dict:
         """
