@@ -183,14 +183,14 @@ class DPT(nn.Module):
         if "images" in kwargs:
             extra_kwargs.update({"images": rearrange(kwargs["images"], "B S ... -> (B S) ...")})
 
-        if chunk_size is None or chunk_size >= S:
+        if chunk_size is None or chunk_size >= B * S:
             out_dict = self._forward_impl(feats, H, W, patch_start_idx, **extra_kwargs)
             out_dict = {k: v.view(B, S, *v.shape[1:]) for k, v in out_dict.items()}
             return Dict(out_dict)
 
         out_dicts: List[TyDict[str, torch.Tensor]] = []
-        for s0 in range(0, S, chunk_size):
-            s1 = min(s0 + chunk_size, S)
+        for s0 in range(0, B * S, chunk_size):
+            s1 = min(s0 + chunk_size, B * S)
             kw = {}
             if "images" in extra_kwargs:
                 kw.update({"images": extra_kwargs["images"][s0:s1]})

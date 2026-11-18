@@ -180,7 +180,7 @@ class DualDPT(nn.Module):
         """
         B, S, N, C = feats[0][0].shape
         feats = [feat[0].reshape(B * S, N, C) for feat in feats]
-        if chunk_size is None or chunk_size >= S:
+        if chunk_size is None or chunk_size >= B * S:
             out_dict = self._forward_impl(feats, H, W, patch_start_idx)
             out_dict = {k: v.reshape(B, S, *v.shape[1:]) for k, v in out_dict.items()}
             return Dict(out_dict)
