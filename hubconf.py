@@ -15,6 +15,13 @@ def _add_sys_path(p):
         sys.path.remove(p)
 
 
+MODEL_URLS = {
+    "da3mono-large": "https://huggingface.co/depth-anything/DA3MONO-LARGE/resolve/main/model.safetensors?download=true",
+    "da3-small": "https://huggingface.co/depth-anything/DA3-SMALL/resolve/main/model.safetensors?download=true",
+    "da3-base": "https://huggingface.co/depth-anything/DA3-BASE/resolve/main/model.safetensors?download=true",
+}
+
+
 def _patch_state_dict_key(state_dict):
     state_dict_new = {}
     for key in state_dict:
@@ -25,12 +32,11 @@ def _patch_state_dict_key(state_dict):
 
 
 def _load_state_dict(model_name):
-    if model_name == "da3mono-large":
-        url = "https://huggingface.co/depth-anything/DA3MONO-LARGE/resolve/main/model.safetensors?download=true"
-        file_name = f"{model_name}.safetensors"
-
-    if not file_name:
+    if model_name not in MODEL_URLS:
         raise ValueError(model_name)
+
+    url = MODEL_URLS[model_name]
+    file_name = f"{model_name}.safetensors"
 
     checkpoint_path = path.join(torch.hub.get_dir(), "checkpoints", file_name)
     if not path.exists(checkpoint_path):
@@ -48,7 +54,8 @@ def load_model(model_name):
         from depth_anything_3.registry import MODEL_REGISTRY
         config = load_config(MODEL_REGISTRY[model_name])
         model = create_object(config)
-        model.load_state_dict(_load_state_dict(model_name), strict=True)
+        _, unexpected = model.load_state_dict(_load_state_dict(model_name), strict=False)
+        assert not unexpected, f"Unexpected keys in state_dict: {unexpected}"
         model.eval()
 
         return model
@@ -64,7 +71,7 @@ def _test():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--input", "-i", type=str, required=True, help="input image file")
     parser.add_argument("--model_name", type=str, default="da3mono-large",
-                        choices=["da3mono-large"],
+                        choices=list(MODEL_URLS.keys()),
                         help="model name")
     args = parser.parse_args()
 
@@ -109,12 +116,18 @@ def _test():
         z = da3(x)
 
     depth = z["depth"].squeeze(0).float()
-    sky_mask = compute_sky_mask(z["sky"].squeeze(0))
-    TF.to_pil_image(normalize_depth_with_sky_mask(depth, sky_mask)).show()
-    time.sleep(2)
-    TF.to_pil_image(src[0]).show()
-    time.sleep(2)
-    TF.to_pil_image(sky_mask.float()).show()
+    if "sky" in z:
+        sky_mask = compute_sky_mask(z["sky"].squeeze(0))
+        TF.to_pil_image(normalize_depth_with_sky_mask(depth, sky_mask)).show()
+        time.sleep(2)
+        TF.to_pil_image(src[0]).show()
+        time.sleep(2)
+        TF.to_pil_image(sky_mask.float()).show()
+    else:
+        sky_mask = torch.zeros_like(depth, dtype=torch.bool)
+        TF.to_pil_image(normalize_depth_with_sky_mask(depth, sky_mask)).show()
+        time.sleep(2)
+        TF.to_pil_image(src[0]).show()
 
 
 if __name__ == "__main__":
